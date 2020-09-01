@@ -4,13 +4,20 @@ from cosineSimilaritywithI2V import top_k_similar_withI2V
 from gensim.models import Word2Vec
 import pandas as pd
 # load data
+"""
 df = pd.read_csv('cleaned_recipe.csv')
 data = []
 for id_value in set(df['id'].values):
     data.append({
         'id':id_value,
-        'ingredients':list(df[df['id']==id_value]['ingredient'].values)})
+        'ingredients':list(df[df['id']==id_value]['ingredient'].values)})"""
+# load data
+with open('train 2.json', encoding="utf-8") as f:
+    data = json.load(f)
 # all_ingredients = recipe['ingredients']
+# load the index:
+with open('food_to_recipe_id.json', encoding="utf-8") as f:
+    food_to_recipe_id = json.load(f)
 '''
 
 
@@ -204,7 +211,8 @@ imperfectRecipe = [
                     'ground white pepper']
 missing_value = ['cooked white rice']
 #  scallions  ,soy sauce   
-'''
+
+
 imperfectRecipe = [
                     'whole wheat hamburger buns',
                     'baby spinach',
@@ -218,14 +226,41 @@ imperfectRecipe = [
                     'ricotta cheese']
 
 missing_value = ['ground beef']
+missing_data = 'ground beef'
+'''
+imperfectRecipe = [
+                    'ground cinnamon',
+                    'golden raisins',
+                    'red bell pepper',
+                    'kosher salt',
+                    'yellow onion',
+                    'ground cumin',
+                    'black pepper',
+                    'lemon',
+                    'tomatoes',
+                    'olive oil',
+                    'shrimp']
+missing_value = ['couscous']
+missing_data = 'couscous'
 
+# remove recipes with missing data
+recipe_contain_mv_id = food_to_recipe_id[missing_value[0]]
+recipe_contain_mv = []
+for item in data:
+    if item['id'] in recipe_contain_mv_id:
+        recipe_contain_mv.append(item)
+for item in recipe_contain_mv:
+    data.remove(item)
 
 
 num_recomand = 5
 k = 100
 time_start1 = time.time()
-ingredient2vec = Word2Vec.load('ingredient2vecV2.model')
+# load model
+ingredient2vec = Word2Vec.load('ingredient2vecV3.model')
+# find top k recipe
 k_recipe = top_k_similar_withI2V(imperfectRecipe, data, k, ingredient2vec)
+# print top k recipe
 print(k_recipe)
 print('---------------------------------------------------------------------------------------')
 trainData = []
@@ -238,6 +273,38 @@ for i in range(len(data)):
 
 print('---------------------------------------------------------------------------------------')
 
+
+ingrelists = []
+for ingrelist in trainData:
+    ingrelists.extend(ingrelist)
+ingreset = set(ingrelists)
+incpltset = set(imperfectRecipe)
+missingset = set(missing_value)
+
+# select candidate
+candidate_list = []
+for ingre in ingreset:
+    if ingre not in missingset | incpltset:
+        ingre_id_list = food_to_recipe_id[ingre]
+        # number of top k recipe that include candidate
+        support_num = len(set(ingre_id_list).intersection(k_recipe))
+        # cooccurance number of missingvalue and candidate
+        cooccurance_num = len(set(ingre_id_list).intersection(recipe_contain_mv_id))
+        # similarity of missingvalue and candidate
+        similar = ingredient2vec.similarity(ingre, missing_data)
+        # add candidate base on negative cooccurance number,support number and word2vec similarity
+        candidate_list.append([ingre, -cooccurance_num, support_num, similar])
+candidate_df = pd.DataFrame.from_records(candidate_list,
+                                         columns=['candidate', '-coocurance','support', 'similarity'])
+# print proper result
+print('---------------------------------------------------------------------------------------')
+print('we have following ingredients : ', imperfectRecipe)
+print('our missing ingredient: ', missing_value)
+print('\n')
+print('---------------------------------------------------------------------------------------')
+print(candidate_df)
+print('---------------------------------------------------------------------------------------')
+print(candidate_df.nlargest(num_recomand, columns=['-coocurance', 'support', 'similarity']))
 # call associate rule mining and print frequent itemsets and it's posibility
 """
 from associateRule import FPgrowth
@@ -247,6 +314,7 @@ arm_res = pred1[1]
 """
 
 ################--------------
+"""
 from fpgrowth import Fp_growth
 import pyfpgrowth
 #data_set = load_data(path)
@@ -268,10 +336,8 @@ for candi in candidate_ingredients:
         candidate_list.append([candi, patterns[(candi,)]])
 
 candidate_df = pd.DataFrame.from_records(candidate_list,
-                                         columns=['candidate', 'support'])
-
-# print proper result
-print("Runtime of FP-growth:", time_end1-time_start1)
+                                         # print proper result
+                                         print("Runtime of FP-growth:", time_end1 - time_start1)
 print('---------------------------------------------------------------------------------------')
 print('we have following ingredients : ', imperfectRecipe)
 print('our missing ingredient: ', missing_value)
@@ -281,3 +347,4 @@ print('-------------------------------------------------------------------------
 print(candidate_df)
 print('---------------------------------------------------------------------------------------')
 print(candidate_df.nlargest(num_recomand, columns=['support']))
+"""
